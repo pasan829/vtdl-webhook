@@ -1,2 +1,3 @@
 yt-dlp>=2025.01.15
 requests>=2.31.0
+yt-dlp-get-pot
