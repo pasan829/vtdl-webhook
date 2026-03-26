@@ -2,18 +2,47 @@
 /api/info — Direct JSON endpoint for Blogger widget
 Widget calls this directly, no Telegram polling needed.
 """
-import os, tempfile
 
-def get_ydl_opts():
-    opts = {'format': 'best', 'noplaylist': True}
-    cookies = os.environ.get("YT_COOKIES")
-    if cookies:
-        # /tmp folder එකේ cookies file එක හදනවා
-        tmp = tempfile.NamedTemporaryFile(delete=False, mode='w', dir='/tmp')
-        tmp.write(cookies)
-        tmp.close()
-        opts['cookiefile'] = tmp.name
-    return opts
+import os
+import tempfile
+
+def get_cookie_file():
+    """Vercel Environment Variable එකෙන් cookies අරගෙන තාවකාලික file එකක් සාදයි"""
+    cookie_data = os.environ.get("YT_COOKIES")
+    if not cookie_data:
+        return None
+
+    # Vercel වල write කරන්න පුළුවන් /tmp එකට විතරයි
+    fd, path = tempfile.mkstemp(suffix=".txt", dir="/tmp")
+    with os.fdopen(fd, 'w') as tmp:
+        tmp.write(cookie_data)
+
+    # File එක කියවන්න පුළුවන් වෙන්න permissions දෙනවා
+    os.chmod(path, 0o644)
+    return path
+
+# --- පාවිච්චි කරන විදිහ ---
+def get_info(url, audio_only=False):
+    cookie_path = get_cookie_file()
+
+    ydl_opts = {
+        'format': 'bestaudio/best' if audio_only else 'best',
+        'noplaylist': True,
+        'quiet': True,
+        'no_warnings': True,
+    }
+
+    if cookie_path:
+        ydl_opts['cookiefile'] = cookie_path
+
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            # ... ඉතිරි code එක ...
+            pass
+    finally:
+        # වැඩේ ඉවර වුනාම temp file එක අයින් කරනවා
+        if cookie_path and os.path.exists(cookie_path):
+            os.remove(cookie_path)
         # ... ඔයාගේ ඉතිරි code එක ...
 
 
