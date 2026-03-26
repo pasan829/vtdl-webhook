@@ -3,6 +3,32 @@
 Widget calls this directly, no Telegram polling needed.
 """
 
+import tempfile # මේක උඩින්ම import කරගන්න
+
+def get_ydl_opts(audio_only=False):
+    opts = {
+        'format': 'bestaudio/best' if audio_only else 'best',
+        'noplaylist': True,
+        'quiet': True,
+    }
+
+    # Cookies පරීක්ෂා කිරීම
+    cookies_content = os.environ.get("YT_COOKIES")
+    if cookies_content:
+        # Vercel වල ලියන්න පුළුවන් එකම තැන /tmp
+        tmp = tempfile.NamedTemporaryFile(delete=False, mode='w', dir='/tmp')
+        tmp.write(cookies_content)
+        tmp.close()
+        opts['cookiefile'] = tmp.name
+
+    return opts
+
+def get_info(url, audio_only=False):
+    ydl_opts = get_ydl_opts(audio_only)
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        # ... ඔයාගේ ඉතිරි code එක ...
+
+
 import json, os, re, sys, subprocess
 from http.server import BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
