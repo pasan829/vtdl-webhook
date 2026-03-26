@@ -2,29 +2,19 @@
 Video Downloader — Telegram Webhook on Vercel
 No polling = No conflicts. Ever.
 """
-import tempfile # මේක උඩින්ම import කරගන්න
 
-def get_ydl_opts(audio_only=False):
-    opts = {
-        'format': 'bestaudio/best' if audio_only else 'best',
-        'noplaylist': True,
-        'quiet': True,
-    }
+import os, tempfile
 
-    # Cookies පරීක්ෂා කිරීම
-    cookies_content = os.environ.get("YT_COOKIES")
-    if cookies_content:
-        # Vercel වල ලියන්න පුළුවන් එකම තැන /tmp
+def get_ydl_opts():
+    opts = {'format': 'best', 'noplaylist': True}
+    cookies = os.environ.get("YT_COOKIES")
+    if cookies:
+        # /tmp folder එකේ cookies file එක හදනවා
         tmp = tempfile.NamedTemporaryFile(delete=False, mode='w', dir='/tmp')
-        tmp.write(cookies_content)
+        tmp.write(cookies)
         tmp.close()
         opts['cookiefile'] = tmp.name
-
     return opts
-
-def get_info(url, audio_only=False):
-    ydl_opts = get_ydl_opts(audio_only)
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         # ... ඔයාගේ ඉතිරි code එක ...
 
 
