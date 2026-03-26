@@ -113,3 +113,23 @@ class handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         params = parse_qs(urlparse(self.path).query)
+        url = (params.get("url", [None])[0] or "").strip()
+        audio_only = params.get("audio", ["0"])[0] == "1"
+        if not url:
+            self._resp(400, {"ok":False,"error":"URL එකක් ඇතුළත් කරන්න."})
+            return
+        try:
+            data = get_info(url, audio_only=audio_only)
+            self._resp(200, {"ok":True, **data})
+        except Exception as e:
+            msg = str(e)
+            if "sign in" in msg.lower(): msg = "YouTube error: කරුණාකර Cookies අලුත් කරන්න."
+            self._resp(422, {"ok":False,"error":msg[:200]})
+
+    def _resp(self, status, body):
+        payload = json.dumps(body, ensure_ascii=False).encode()
+        self.send_response(status)
+        for k,v in CORS.items(): self.send_header(k,v)
+        self.send_header("Content-Length", str(len(payload)))
+        self.end_headers()
+        self.wfile.write(payload)
