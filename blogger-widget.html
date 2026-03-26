@@ -153,10 +153,10 @@
   </div>
 
   <div class="grid">
-    <div class="gc"><div class="gc-ico">⚡</div><div class="gc-ttl">On-Site Download</div><div class="gc-txt">Site ගෙන් නොගොස් download links directly show වෙනවා.</div></div>
-    <div class="gc"><div class="gc-ico">📊</div><div class="gc-ttl">File Size Info</div><div class="gc-txt">Download කරන්න කලිනෙ file size, quality, format දැනගන්න.</div></div>
-    <div class="gc"><div class="gc-ico">🚀</div><div class="gc-ttl">No Conflicts</div><div class="gc-txt">Webhook architecture — simultaneously run issues නෑ.</div></div>
-    <div class="gc"><div class="gc-ico">🔒</div><div class="gc-ttl">Private</div><div class="gc-txt">ඔයාගෙ server. Data store නෑ. Ads නෑ.</div></div>
+    <div class="gc"><div class="gc-ico">⚡</div><div class="gc-ttl">On-Site Download</div><div class="gc-txt">Site එකෙන් පිටට නොගොස් download links මෙතනම බලාගන්න.</div></div>
+    <div class="gc"><div class="gc-ico">📊</div><div class="gc-ttl">File Size Info</div><div class="gc-txt">Download කරන්න කලින් file size සහ quality එක තෝරාගන්න.</div></div>
+    <div class="gc"><div class="gc-ico">🚀</div><div class="gc-ttl">No Conflicts</div><div class="gc-txt">Webhook architecture නිසා වේගවත්ව වැඩ කරයි.</div></div>
+    <div class="gc"><div class="gc-ico">🔒</div><div class="gc-ttl">Private</div><div class="gc-txt">ඔයාගේම server එකක් නිසා data සහ privacy ආරක්ෂිතයි.</div></div>
   </div>
 
   <div class="foot">Powered by Vercel + yt-dlp · For personal use only · Respect copyright</div>
@@ -164,10 +164,9 @@
 
 <script>
 // ══════════════════════════════════════════════════
-// ✏️  ඔයාගෙ Vercel URL දාන්න (trailing slash නෑ)
-// Example: https://vtdl-webhook-abc123.vercel.app
+// ✏️  මෙතනට ඔයාගේ Vercel URL එක විතරක් දාන්න
 // ══════════════════════════════════════════════════
-const API_BASE = "https://vtdl-webhook.vercel.app/";
+const API_BASE = "https://vtdl-webhook.vercel.app";
 // ══════════════════════════════════════════════════
 
 function detect(url){
@@ -185,19 +184,23 @@ urlBox.addEventListener("input",()=>{
   const el=document.getElementById("detEl");
   if(p&&urlBox.value.length>10){document.getElementById("detTxt").textContent="Detected: "+p;el.classList.add("on");}
   else el.classList.remove("on");
-  reset();
+  resetUI();
 });
+
 urlBox.addEventListener("keydown",e=>{if(e.key==="Enter")go("video");});
 
 async function doPaste(){
-  try{urlBox.value=await navigator.clipboard.readText();urlBox.dispatchEvent(new Event("input"));}
-  catch{urlBox.focus();}
+  try{
+    const text = await navigator.clipboard.readText();
+    urlBox.value = text;
+    urlBox.dispatchEvent(new Event("input"));
+  } catch{urlBox.focus();}
 }
 
-function reset(){
-  document.getElementById("prog").classList.remove("on");
+function resetUI(){
   document.getElementById("errBox").classList.remove("on");
   document.getElementById("result").classList.remove("on");
+  document.getElementById("prog").classList.remove("on");
 }
 
 function setBusy(on){
@@ -209,7 +212,7 @@ function setBusy(on){
 }
 
 function showErr(msg){
-  reset();
+  resetUI();
   document.getElementById("errTxt").textContent=msg;
   document.getElementById("errBox").classList.add("on");
 }
@@ -223,30 +226,43 @@ async function go(type){
   const url=urlBox.value.trim();
   if(!url||!/^https?:\/\//i.test(url)){
     urlBox.style.borderColor="var(--accent)";
-    urlBox.style.boxShadow="0 0 0 3px rgba(255,60,90,.2)";
-    setTimeout(()=>{urlBox.style.borderColor="";urlBox.style.boxShadow="";},1500);
+    setTimeout(()=>{urlBox.style.borderColor="";},1500);
     return;
   }
 
-  reset();
+  resetUI();
   setBusy(true);
-  setProgress("Video info ලබාගනිමින්...");
+  setProgress("Video තොරතුරු ලබාගනිමින් පවතී...");
 
   try{
     const audio = type==="audio" ? "1" : "0";
+    // API URL එක හරියටම build කිරීම
     const apiUrl = `${API_BASE}/api/info?url=${encodeURIComponent(url)}&audio=${audio}`;
-    const resp = await fetch(apiUrl);
+
+    // Fetch request with CORS handling
+    const resp = await fetch(apiUrl, {
+        method: 'GET',
+        mode: 'cors',
+        headers: { 'Accept': 'application/json' }
+    });
+
+    if(!resp.ok) {
+        const errData = await resp.json().catch(()=>({}));
+        throw new Error(errData.error || `Server error (${resp.status})`);
+    }
+
     const data = await resp.json();
 
     if(!data.ok){
-      showErr(data.error||"Download failed. URL check කරලා retry කරන්න.");
+      showErr(data.error || "Download failed. URL එක පරීක්ෂා කර නැවත උත්සාහ කරන්න.");
       return;
     }
 
     buildResult(data);
 
   } catch(e){
-    showErr("Connection error — Vercel URL හරිද check කරන්න. " + (e.message||""));
+    console.error("Fetch error:", e);
+    showErr("සම්බන්ධතාවයේ දෝෂයකි — Vercel URL එක නිවැරදිදැයි බලන්න. (Error: " + e.message + ")");
   } finally{
     setBusy(false);
     document.getElementById("prog").classList.remove("on");
@@ -255,9 +271,11 @@ async function go(type){
 
 function buildResult(d){
   const thumb = d.thumbnail
-    ?`<img class="v-thumb" src="${x(d.thumbnail)}" alt="" onerror="this.style.display='none'">`
+    ?`<img class="v-thumb" src="${x(d.thumbnail)}" alt="" onerror="this.src='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='">`
     :`<div class="v-thumb-ph">🎬</div>`;
+
   const meta=[d.platform,d.dur_fmt,d.uploader?"by "+d.uploader:""].filter(Boolean).join(" · ");
+
   document.getElementById("vStrip").innerHTML=`
     <div class="v-strip">${thumb}
       <div class="v-info">
@@ -268,7 +286,11 @@ function buildResult(d){
 
   const grid=document.getElementById("dlGrid");
   grid.innerHTML="";
-  if(!d.options?.length){showErr("Download formats හොයාගන්න බැරිවුනා.");return;}
+
+  if(!d.options || d.options.length === 0){
+    showErr("Download formats කිසිවක් හමු නොවීය.");
+    return;
+  }
 
   d.options.forEach(opt=>{
     const isAud=opt.type==="audio";
@@ -287,8 +309,8 @@ function buildResult(d){
       </div>
       <a class="dl-link ${isAud?"aud":"vid"}"
          href="${x(opt.url)}"
-         download="${x((d.title||"video").slice(0,60))}.${x(opt.ext||"mp4")}"
-         target="_blank" rel="noopener">⬇ ${isAud?"MP3":"Download"}</a>`;
+         download="${x((d.title||"video").slice(0,50))}.${x(opt.ext||"mp4")}"
+         target="_blank" rel="noopener noreferrer">⬇ ${isAud?"MP3":"Download"}</a>`;
     grid.appendChild(item);
   });
 
@@ -297,7 +319,8 @@ function buildResult(d){
 }
 
 function x(s){
-  return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+  if(!s) return "";
+  return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
 }
 </script>
 </body>
