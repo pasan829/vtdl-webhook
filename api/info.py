@@ -6,8 +6,10 @@ from http.server import BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 
 def pip(pkg):
-    subprocess.check_call([sys.executable,"-m","pip","install",pkg,"-q"],
-                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    try:
+        subprocess.check_call([sys.executable,"-m","pip","install",pkg,"-q"],
+                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except: pass
 
 try: import yt_dlp
 except ImportError: pip("yt-dlp"); import yt_dlp
@@ -25,11 +27,13 @@ CORS = {
 def get_cookie_file():
     cookie_data = os.environ.get("YT_COOKIES")
     if not cookie_data: return None
-    fd, path = tempfile.mkstemp(suffix=".txt", dir="/tmp")
-    with os.fdopen(fd, 'w') as tmp:
-        tmp.write(cookie_data)
-    os.chmod(path, 0o644)
-    return path
+    try:
+        fd, path = tempfile.mkstemp(suffix=".txt", dir="/tmp")
+        with os.fdopen(fd, 'w') as tmp:
+            tmp.write(cookie_data)
+        os.chmod(path, 0o644)
+        return path
+    except: return None
 
 def fmt_size(b):
     if not b or b<=0: return ""
@@ -39,8 +43,10 @@ def fmt_size(b):
 
 def fmt_dur(s):
     if not s: return ""
-    h,r = divmod(int(s),3600); m,sec = divmod(r,60)
-    return f"{h}:{m:02}:{sec:02}" if h else f"{m}:{sec:02}"
+    try:
+        h,r = divmod(int(s),3600); m,sec = divmod(r,60)
+        return f"{h}:{m:02}:{sec:02}" if h else f"{m}:{sec:02}"
+    except: return ""
 
 def quality_label(h):
     if not h: return "Best"
@@ -60,8 +66,6 @@ def head_size(url):
 
 def get_info(url, audio_only=False):
     cookie_path = get_cookie_file()
-
-    # YouTube bot detection මඟහැරීමට අත්‍යවශ්‍ය opts
     opts = {
         "quiet": True, "no_warnings": True,
         "skip_download": True, "noplaylist": True,
@@ -83,6 +87,7 @@ def get_info(url, audio_only=False):
         seen = set()
 
         if not audio_only:
+            # Video + Audio formats
             combined = [f for f in fmts if f.get("vcodec") not in (None,"none") and f.get("acodec") not in (None,"none") and f.get("url")]
             combined.sort(key=lambda f: f.get("height") or 0, reverse=True)
             for f in combined:
@@ -93,16 +98,19 @@ def get_info(url, audio_only=False):
                 options.append({"type":"video","label":quality_label(h),"ext":f.get("ext","mp4"),"url":f["url"],"size":sz,"size_fmt":fmt_size(sz)})
                 if len(seen)>=4: break
 
+        # Best Audio Only format
         af = [f for f in fmts if f.get("vcodec") in (None,"none") and f.get("acodec") not in (None,"none") and f.get("url")]
         af.sort(key=lambda f: f.get("abr") or 0, reverse=True)
         if af:
             a = af[0]
-            sz = a.get("filesize") or head_size(a["url"])
+            sz = a.get("filesize") or a.get("filesize_approx") or head_size(a["url"])
             options.append({"type":"audio","label":"Audio Only (MP3)","ext":a.get("ext","m4a"),"url":a["url"],"size":sz,"size_fmt":fmt_size(sz)})
 
         return {"title":info.get("title","Video"), "thumbnail":info.get("thumbnail",""), "dur_fmt":fmt_dur(info.get("duration")), "options":options}
     finally:
-        if cookie_path and os.path.exists(cookie_path): os.remove(cookie_path)
+        if cookie_path and os.path.exists(cookie_path):
+            try: os.remove(cookie_path)
+            except: pass
 
 class handler(BaseHTTPRequestHandler):
     def log_message(self, *a): pass
@@ -112,24 +120,24 @@ class handler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_GET(self):
-        params = parse_qs(urlparse(self.path).query)
+        parsed = urlparse(self.path)
+        params = parse_qs(parsed.query)
         url = (params.get("url", [None])[0] or "").strip()
-        audio_only = params.get("audio", ["0"])[0] == "1"
+
         if not url:
-            self._resp(400, {"ok":False,"error":"URL එකක් ඇතුළත් කරන්න."})
+            self._resp(400, {"ok":False, "error":"Missing ?url= parameter"})
             return
+
         try:
-            data = get_info(url, audio_only=audio_only)
+            data = get_info(url)
             self._resp(200, {"ok":True, **data})
         except Exception as e:
-            msg = str(e)
-            if "sign in" in msg.lower(): msg = "YouTube error: කරුණාකර Cookies අලුත් කරන්න."
-            self._resp(422, {"ok":False,"error":msg[:200]})
+            self._resp(500, {"ok":False, "error":str(e)[:200]})
 
     def _resp(self, status, body):
-        payload = json.dumps(body, ensure_ascii=False).encode()
+        payload = json.dumps(body).encode("utf-8")
         self.send_response(status)
         for k,v in CORS.items(): self.send_header(k,v)
-        self.send_header("Content-Length", str(len(payload)))
+        self.send_header("Content-Length", len(payload))
         self.end_headers()
         self.wfile.write(payload)
