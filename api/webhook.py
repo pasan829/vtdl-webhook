@@ -317,7 +317,22 @@ class handler(BaseHTTPRequestHandler):
         self._ok()
 
     def do_GET(self):
-        self._ok({"status": "Video Downloader Bot is running ✅"})
+        # Serve HTML page with Speed Insights
+        try:
+            html_path = os.path.join(os.path.dirname(__file__), "..", "public", "index.html")
+            if os.path.exists(html_path):
+                with open(html_path, "r", encoding="utf-8") as f:
+                    html_content = f.read()
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.send_header("Content-Length", str(len(html_content.encode())))
+                self.end_headers()
+                self.wfile.write(html_content.encode())
+            else:
+                self._ok({"status": "Video Downloader Bot is running ✅"})
+        except Exception as e:
+            print(f"Error serving HTML: {e}")
+            self._ok({"status": "Video Downloader Bot is running ✅"})
 
     def _ok(self, body=None):
         payload = json.dumps(body or {"ok": True}).encode()
