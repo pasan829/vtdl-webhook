@@ -1,0 +1,28 @@
+{
+  "name": "vtdl-webhook",
+  "version": "1.0.0",
+  "description": "Video Downloader Telegram Webhook on Vercel",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pasan829/vtdl-webhook.git"
+  },
+  "keywords": [
+    "telegram",
+    "webhook",
+    "video-downloader",
+    "vercel"
+  ],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/pasan829/vtdl-webhook/issues"
+  },
+  "homepage": "https://github.com/pasan829/vtdl-webhook#readme",
+  "dependencies": {
+    "@vercel/speed-insights": "^2.0.0"
+  }
+}
