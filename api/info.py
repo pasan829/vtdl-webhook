@@ -1,6 +1,3 @@
-"""
-/api/info — Direct JSON endpoint for Blogger widget
-"""
 import json, os, re, sys, subprocess, tempfile
 from http.server import BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
@@ -25,8 +22,16 @@ CORS = {
 }
 
 def get_cookie_file():
+    # 1. මුලින්ම බලනවා Environment Variable එකේ cookies තියෙනවද කියලා
     cookie_data = os.environ.get("YT_COOKIES")
-    if not cookie_data: return None
+
+    # 2. එහෙම නැත්නම් මේ පහත තියෙන variable එකට direct cookies දාන්න පුළුවන්
+    if not cookie_data:
+        cookie_data = """# Netscape HTTP Cookie File
+.youtube.com	TRUE	/	TRUE	1790084856	LOGIN_INFO	AFmmF2swRQIhAKaFU5ML7QEJdOjgkFHmdMmSKEaZrGOCp0g1LXAn1qmhAiBiZTOcoJZEhixFl8kPThGLWMtJYsfwtsM_TO7Cz7wOWQ:QUQ3MjNmemRJaElCQ1d2OXFnblhEUnp5R1diRU96NG4yNFpianRJay1EbEFkWldVc2FYRnBNd1duaEFDOW9QcjNHS080bk1XZ0F1Ni04TzNocUxENXpnZ0dhbG5DRFVrRU5UejlidEE2WWhoLTdfaDJZVFlDem1"""
+
+    if not cookie_data or len(cookie_data) < 10: return None
+
     try:
         fd, path = tempfile.mkstemp(suffix=".txt", dir="/tmp")
         with os.fdopen(fd, 'w') as tmp:
@@ -34,6 +39,8 @@ def get_cookie_file():
         os.chmod(path, 0o644)
         return path
     except: return None
+
+# ... (ඉතිරි functions ඔක්කොම කලින් වගේමයි)
 
 def fmt_size(b):
     if not b or b<=0: return ""
@@ -87,7 +94,6 @@ def get_info(url, audio_only=False):
         seen = set()
 
         if not audio_only:
-            # Video + Audio formats
             combined = [f for f in fmts if f.get("vcodec") not in (None,"none") and f.get("acodec") not in (None,"none") and f.get("url")]
             combined.sort(key=lambda f: f.get("height") or 0, reverse=True)
             for f in combined:
@@ -98,7 +104,6 @@ def get_info(url, audio_only=False):
                 options.append({"type":"video","label":quality_label(h),"ext":f.get("ext","mp4"),"url":f["url"],"size":sz,"size_fmt":fmt_size(sz)})
                 if len(seen)>=4: break
 
-        # Best Audio Only format
         af = [f for f in fmts if f.get("vcodec") in (None,"none") and f.get("acodec") not in (None,"none") and f.get("url")]
         af.sort(key=lambda f: f.get("abr") or 0, reverse=True)
         if af:
